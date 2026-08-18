@@ -327,8 +327,13 @@
       toast('A ' + TYPENAME[linkChild.type] + ' links to a ' + PARENTNAME[linkChild.type] + ' card — tap a ' + PARENTNAME[linkChild.type] + '.');
       return;
     }
+    const oldParent = cards.find(k=>k.id===linkChild.parent);
     linkChild.parent = c.id;
-    toast('Linked. Use Build the chart to place it in the hierarchy.');
+    const childTag = linkChild.el.querySelector('.tag').textContent;
+    const newTag = c.el.querySelector('.tag').textContent;
+    toast(oldParent
+      ? childTag + ' re-linked from ' + oldParent.el.querySelector('.tag').textContent + ' to ' + newTag + '. Use Build the chart to re-arrange.'
+      : childTag + ' linked to ' + newTag + '. Use Build the chart to place it in the hierarchy.');
     clearLinkSel();
     drawLinks();
   }
@@ -377,6 +382,13 @@
       if(ev.key==='Enter'){ ev.preventDefault(); ev.target.blur(); }
     });
     el.querySelector('.del').addEventListener('click', ()=>{
+      const kids = cards.filter(k=>k.parent===c.id);
+      if(kids.length){
+        const kindName = {job:'function', func:'task', task:'subtask'}[c.type] || 'card';
+        toast('This ' + TYPENAME[c.type] + ' still has ' + kids.length + ' linked ' + kindName + ' card' + (kids.length>1?'s':'') + '. Deletion is bottom-up: delete or re-link those cards first.');
+        return;
+      }
+      if(linkChild===c) clearLinkSel();
       const i = cards.indexOf(c);
       if(i>-1) cards.splice(i,1);
       el.remove();
