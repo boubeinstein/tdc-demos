@@ -85,6 +85,7 @@
   .card.task{background:var(--task); z-index:4;}
   .card.sub{background:var(--sub); z-index:3;}
   .card.hidden-card{opacity:0; pointer-events:none; transform:translateY(18px);}
+  .card.linksel{outline:3px solid #3e6ea5; outline-offset:3px;}
   .card .del{
     position:absolute; top:2px; right:4px; border:none; background:none; color:rgba(0,0,0,.35);
     font-size:13px; cursor:pointer; display:none; padding:2px;
@@ -111,6 +112,11 @@
   #addMenu button:hover{filter:brightness(.95);}
   #addMenu .m-job{background:var(--job);} #addMenu .m-func{background:var(--func);}
   #addMenu .m-task{background:var(--task);} #addMenu .m-sub{background:var(--sub);}
+  #toast{
+    position:fixed; left:50%; bottom:24px; transform:translateX(-50%); background:rgba(32,36,42,.95);
+    color:#e8ecf2; font-size:13px; padding:10px 18px; border-radius:9px; display:none; z-index:120;
+    max-width:92vw; text-align:center; line-height:1.4;
+  }
 </style>
 </head>
 <body>
@@ -121,6 +127,7 @@
   <button class="btn primary" id="btnArrange" title="Assemble the cards into the DACUM chart">Build the chart</button>
   <button class="btn" id="btnLinks">Links: on</button>
   <button class="btn" id="btnAdd">+ Add card</button>
+  <button class="btn" id="btnLink" title="Link a card to its parent">Link</button>
   <button class="btn" id="btnPresent">Present</button>
   <button class="btn" id="btnZoomOut" title="Zoom out">&minus;</button>
   <button class="btn" id="btnZoomFit" title="Fit to screen">Fit</button>
@@ -135,6 +142,7 @@
     <svg id="links"></svg>
   </div>
   </div>
+  <div id="toast"></div>
   <div id="present-note">Press <b>Space</b> or click to reveal the next level — Job → Functions → Tasks → Subtasks</div>
   <div id="addMenu">
     <button class="m-job"  data-type="job">Job title card</button>
@@ -284,12 +292,54 @@
   let linkTimer = null;
   function drawLinksSoon(){ clearTimeout(linkTimer); linkTimer = setTimeout(drawLinks, 850); drawLinks(); }
 
+  const toastEl = document.getElementById('toast');
+  function toast(m){
+    toastEl.textContent = m; toastEl.style.display = 'block';
+    clearTimeout(toastEl._h); toastEl._h = setTimeout(()=> toastEl.style.display='none', 3800);
+  }
+
+  /* ------- link mode ------- */
+  let linking = false, linkChild = null;
+  const TYPENAME = {job:'job title', func:'function', task:'task', sub:'subtask'};
+  const PARENTNAME = {func:'job title', task:'function', sub:'task'};
+  function clearLinkSel(){
+    if(linkChild){ linkChild.el.classList.remove('linksel'); linkChild = null; }
+  }
+  function handleLinkTap(c){
+    if(!linkChild){
+      if(c.type === 'job'){
+        toast('The job title card is the top of the hierarchy. Start with the card to be linked: tap a function, task or subtask first.');
+        return;
+      }
+      linkChild = c;
+      c.el.classList.add('linksel');
+      toast('Now tap the ' + PARENTNAME[c.type] + ' card this ' + TYPENAME[c.type] + ' belongs to. Tap the same card again to unlink it.');
+      return;
+    }
+    if(c === linkChild){
+      c.parent = null;
+      clearLinkSel();
+      toast('Card unlinked. Use Build the chart to re-arrange.');
+      drawLinks();
+      return;
+    }
+    if(LEVELS[c.type] !== LEVELS[linkChild.type] - 1){
+      toast('A ' + TYPENAME[linkChild.type] + ' links to a ' + PARENTNAME[linkChild.type] + ' card — tap a ' + PARENTNAME[linkChild.type] + '.');
+      return;
+    }
+    linkChild.parent = c.id;
+    toast('Linked. Use Build the chart to place it in the hierarchy.');
+    clearLinkSel();
+    drawLinks();
+  }
+
   /* ------- interactions ------- */
   function wire(c){
     const el = c.el;
     el.addEventListener('pointerdown', e=>{
       if(e.target.closest('.del') || e.target.closest('[contenteditable="true"]')) return;
       e.preventDefault();
+      if(linking){ handleLinkTap(c); return; }
       el.setPointerCapture(e.pointerId);
       el.classList.add('dragging');
       const sx = e.clientX, sy = e.clientY, ox = c.x, oy = c.y;
@@ -416,6 +466,15 @@
     });
   });
 
+  const btnLink = document.getElementById('btnLink');
+  btnLink.addEventListener('click', ()=>{
+    linking = !linking;
+    btnLink.classList.toggle('toggled', linking);
+    btnLink.textContent = linking ? 'Linking\u2026' : 'Link';
+    clearLinkSel();
+    if(linking) toast('Link mode: tap a card, then tap its parent. Tap the same card twice to unlink. Press Link again to finish.');
+  });
+
   /* ------- present mode ------- */
   let presenting = false, level = -1;
   const note = document.getElementById('present-note');
@@ -450,6 +509,7 @@
   });
   board.addEventListener('click', e=>{
     if(presenting && !e.target.closest('.card')) step();
+    if(linking && !e.target.closest('.card')) clearLinkSel();
   });
 
   document.getElementById('btnZoomIn').addEventListener('click', ()=> setScale(scale * 1.25));
