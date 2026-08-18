@@ -29,6 +29,8 @@
   }
   header h1{font-size:16px; font-weight:600; letter-spacing:.02em; margin-right:6px;}
   header .sub{font-size:12px; color:#9aa6b5;}
+  #hdrGroup, #hdrSession{border-bottom:1px dashed #6b7686; cursor:pointer; padding:0 2px 1px;}
+  #hdrGroup[contenteditable="true"], #hdrSession[contenteditable="true"]{background:#3a4250; color:#fff; border-radius:4px; outline:none; border-bottom-color:transparent;}
   .btn{
     font:600 13px/1 "Segoe UI",system-ui,sans-serif; color:#e8ecf2; background:#3a4250;
     border:1px solid #4d5768; border-radius:7px; padding:8px 14px; cursor:pointer;
@@ -114,7 +116,7 @@
 <body>
 <header>
   <h1>DACUM Board</h1>
-  <span class="sub">Flight Dispatcher &middot; Group 1 &middot; NCAT, Abuja</span>
+  <span class="sub"><span id="hdrJob">Flight Dispatcher</span> &middot; <span id="hdrGroup" title="Tap to edit your group name">Group 1</span> &middot; <span id="hdrSession" title="Tap to edit batch and location">TDC Batch 8, Abuja</span></span>
   <button class="btn" id="btnScatter" title="Scatter the cards as at the start of a brainstorming session">Brainstorm</button>
   <button class="btn primary" id="btnArrange" title="Assemble the cards into the DACUM chart">Build the chart</button>
   <button class="btn" id="btnLinks">Links: on</button>
@@ -148,7 +150,7 @@
   <span><b style="color:#f2d349">&#9632;</b> Task</span>
   <span><b style="color:#a8dcc4">&#9632;</b> Subtask</span>
   <span class="spacer"></span>
-  <span>Flight Dispatcher DACUM — Group 1, TDC Module 2</span>
+  <span id="ftrLine">Flight Dispatcher DACUM — Group 1, TDC Module 4 · NCAT (Zaria)</span>
 </footer>
 
 <script>
@@ -311,8 +313,15 @@
       t.focus();
       document.execCommand && document.execCommand('selectAll', false, null);
     });
+    el.querySelector('.txt').addEventListener('input', ()=>{
+      if(c.type==='job' && typeof syncTitles === 'function') syncTitles();
+    });
     el.querySelector('.txt').addEventListener('blur', ev=>{
       ev.target.removeAttribute('contenteditable');
+      if(c.type==='job'){
+        try{ localStorage.setItem('dacum.job', ev.target.textContent.trim()); }catch(e){}
+        syncTitles();
+      }
     });
     el.querySelector('.txt').addEventListener('keydown', ev=>{
       if(ev.key==='Enter'){ ev.preventDefault(); ev.target.blur(); }
@@ -324,6 +333,60 @@
       drawLinks();
     });
   }
+
+  /* ------- title bar sync ------- */
+  const hdrJob = document.getElementById('hdrJob');
+  const hdrGroup = document.getElementById('hdrGroup');
+  const ftrLine = document.getElementById('ftrLine');
+  function jobCard(){ return cards.find(c=>c.type==='job'); }
+  function syncTitles(){
+    const jc = jobCard();
+    const j = (jc ? jc.el.querySelector('.txt').textContent.trim() : '') || 'DACUM';
+    const g = hdrGroup.textContent.trim() || 'Group 1';
+    hdrJob.textContent = j;
+    ftrLine.textContent = j + ' DACUM \u2014 ' + g + ', TDC Module 4 \u00b7 NCAT (Zaria)';
+    document.title = 'DACUM Board \u2014 ' + j + ' (' + g + ')';
+  }
+  function saveGroup(){
+    const g = hdrGroup.textContent.trim() || 'Group 1';
+    hdrGroup.textContent = g;
+    try{ localStorage.setItem('dacum.group', g); }catch(e){}
+    syncTitles();
+  }
+  (function loadConfig(){
+    let g = null, j = null, se = null;
+    try{
+      const q = new URLSearchParams(location.search);
+      g = q.get('group'); j = q.get('job'); se = q.get('session');
+    }catch(e){}
+    if(!g){ try{ g = localStorage.getItem('dacum.group'); }catch(e){} }
+    if(!j){ try{ j = localStorage.getItem('dacum.job'); }catch(e){} }
+    if(!se){ try{ se = localStorage.getItem('dacum.session'); }catch(e){} }
+    if(g) hdrGroup.textContent = g;
+    if(se) document.getElementById('hdrSession').textContent = se;
+    const jc = jobCard();
+    if(j && jc) jc.el.querySelector('.txt').textContent = j;
+  })();
+  const hdrSession = document.getElementById('hdrSession');
+  function editable(el, onDone){
+    el.addEventListener('click', ()=>{
+      if(el.getAttribute('contenteditable')==='true') return;
+      el.setAttribute('contenteditable','true');
+      el.focus();
+      const r = document.createRange(); r.selectNodeContents(el);
+      const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(r);
+    });
+    el.addEventListener('blur', ()=>{ el.removeAttribute('contenteditable'); onDone(); });
+    el.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); el.blur(); } });
+  }
+  function saveSession(){
+    const v = hdrSession.textContent.trim() || 'TDC Batch 8, Abuja';
+    hdrSession.textContent = v;
+    try{ localStorage.setItem('dacum.session', v); }catch(e){}
+  }
+  editable(hdrGroup, saveGroup);
+  editable(hdrSession, saveSession);
+  syncTitles();
 
   /* ------- toolbar ------- */
   document.getElementById('btnArrange').addEventListener('click', ()=>{ exitPresent(); arrange(); });
