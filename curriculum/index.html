@@ -95,6 +95,36 @@
   .toolbar{display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px;}
   .small{font-size:12px; color:var(--ink3);}
   @media (max-width:640px){ .deprow .who{flex-basis:100%;} }
+  .finding{display:flex; gap:10px; align-items:flex-start; padding:9px 10px; border-radius:8px; margin-bottom:8px; font-size:13px; line-height:1.45;}
+  .finding .sev{flex:none; font:700 10px/1.6 "Segoe UI",sans-serif; letter-spacing:.06em; padding:2px 8px; border-radius:10px; margin-top:1px;}
+  .finding.err{background:#fbe9e7;} .finding.err .sev{background:#b3261e; color:#fff;}
+  .finding.warn{background:#fdf3e0;} .finding.warn .sev{background:#a05e03; color:#fff;}
+  .finding.info{background:#eef2f7;} .finding.info .sev{background:#3d5570; color:#fff;}
+  .finding .cite{color:var(--ink3); font-size:11.5px; display:block; margin-top:2px;}
+  .tto{background:#fbf8ee; border-top:1px dashed var(--line); padding:8px 10px;}
+  .tto .lbl{font:700 11px "Segoe UI",sans-serif; color:var(--ink2); margin-bottom:6px;}
+  .cps{display:flex; flex-direction:column; gap:6px;}
+  .cps .row{display:flex; gap:8px; align-items:center;}
+  .cps .row span{flex:0 0 92px; font-size:12px; color:var(--ink2); text-align:right;}
+  .emoview{font-size:13px; line-height:1.5; background:#fbf8ee; border:1px solid var(--line); border-radius:7px; padding:8px 10px;}
+  .emoview b{display:inline-block; min-width:92px;}
+  .durrow{display:flex; gap:8px; align-items:center; margin-top:9px; font-size:12.5px; color:var(--ink2);}
+  .durrow input{width:80px; font:14px "Segoe UI",sans-serif; padding:6px 8px; border:1px solid var(--line); border-radius:7px;}
+  #report{background:#fff; border:1px solid var(--line); border-radius:10px; padding:22px 26px;}
+  #report h1{font-size:17px; margin-bottom:2px;}
+  #report .rsub{font-size:12px; color:var(--ink3); margin-bottom:16px;}
+  #report h2{font-size:14px; margin:18px 0 8px;}
+  #report table{margin-top:4px;}
+  #report .rflow{overflow-x:auto; margin-top:4px;}
+  #report .remo{margin:8px 0; font-size:13px; line-height:1.5;}
+  #report .remo b{display:block; margin-bottom:2px;}
+  #report .rmods li{margin-bottom:6px; font-size:13px;}
+  @media print{
+    header, nav, .hint, .toolbar, #toast{display:none !important;}
+    main{max-width:none; padding:0;}
+    body{background:#fff;}
+    #report{border:none; padding:0;}
+  }
 </style>
 </head>
 <body>
@@ -108,6 +138,8 @@
     <button data-tab="1">2 &middot; Dependencies</button>
     <button data-tab="2">3 &middot; Flowchart</button>
     <button data-tab="3">4 &middot; Modules</button>
+    <button data-tab="4">5 &middot; Check</button>
+    <button data-tab="5">6 &middot; Report</button>
   </nav>
 </header>
 
@@ -173,6 +205,20 @@
       <p class="small" style="margin-top:9px">Choose the sequence so that practical application comes as close as possible to the learning of the K/S/As involved. A module must come after any module whose objectives it depends on.</p>
     </div>
   </section>
+
+  <!-- TAB 4 : CHECK -->
+  <section id="tab4" style="display:none">
+    <div class="hint">Findings from the quality checks of Design of Curriculum. They never block the work: resolve them, or be ready to justify them at the presentation.</div>
+    <div class="panel"><h2>Findings</h2><div id="findList"></div></div>
+  </section>
+
+  <!-- TAB 5 : REPORT -->
+  <section id="tab5" style="display:none">
+    <div class="toolbar">
+      <button class="btn" id="btnPrint">Print / Save as PDF</button>
+    </div>
+    <div id="report"></div>
+  </section>
 </main>
 
 <div id="toast"></div>
@@ -186,9 +232,12 @@ const nid = p => p + (++uid) + '_' + Math.floor(Math.random()*1e5);
 /* ---------------- example data ---------------- */
 function exampleF1(){
   const t = [
-    {id:'t1', num:'1.1', name:'Analyse the meteorological conditions for the flight'},
-    {id:'t2', num:'1.2', name:'Determine the route and flight levels for the flight'},
-    {id:'t3', num:'1.3', name:'Calculate the fuel required for the flight'},
+    {id:'t1', num:'1.1', name:'Analyse the meteorological conditions for the flight',
+     tto:{c:'Given a flight assigned for dispatch and access to the meteorological information sources', p:'Analyse the meteorological conditions for the flight', s:'in accordance with ICAO Annex 3 Chapter 9.4 provisions and the Max Air Operations Manual §1.2.2'}},
+    {id:'t2', num:'1.2', name:'Determine the route and flight levels for the flight',
+     tto:{c:'Given the completed weather analysis, the NOTAM summaries and the Max Air Route Manual (OMC)', p:'Determine the route and flight levels for the flight', s:'in accordance with the Max Air OMC and ICAO Doc 4444 flight plan provisions in Appendix 2'}},
+    {id:'t3', num:'1.3', name:'Calculate the fuel required for the flight',
+     tto:{c:'Given the planned route, the aircraft performance data and the Max Air fuel policy', p:'Calculate the fuel required for the flight', s:'in accordance with ICAO Annex 6 fuel requirements and the Max Air Flight Dispatch Manual (FDM), without calculation errors'}},
   ];
   const ios = [
     {id:'a', num:'111', text:'Obtain the meteorological reports and forecasts for the route and aerodromes', taskId:'t1', deps:[]},
@@ -202,9 +251,12 @@ function exampleF1(){
 }
 function exampleF2(){
   const t = [
-    {id:'t1', num:'2.1', name:'Monitor the progress of each flight against the operational flight plan'},
-    {id:'t2', num:'2.2', name:'Inform the pilot-in-command of significant operational changes'},
-    {id:'t3', num:'2.3', name:'Initiate the applicable emergency procedures'},
+    {id:'t1', num:'2.1', name:'Monitor the progress of each flight against the operational flight plan',
+     tto:{c:'Given flights in operation, the flight tracking system and the position reports', p:'Monitor the progress of each flight against the operational flight plan', s:'in accordance with Max Air flight watch procedures and Nig. CARs 8.6.2.20'}},
+    {id:'t2', num:'2.2', name:'Inform the pilot-in-command of significant operational changes',
+     tto:{c:'Given a significant operational change affecting a flight in operation and the available communication means', p:'Inform the pilot-in-command of significant operational changes', s:'in accordance with Max Air communications procedures as stated in the Operations Manual Part C'}},
+    {id:'t3', num:'2.3', name:'Initiate the applicable emergency procedures',
+     tto:{c:'Given an emergency or abnormal situation involving a company flight and the Emergency Response Plan', p:'Initiate the applicable emergency procedures', s:'in accordance with the notification sequence and time frames of the Max Air Emergency Response Plan Manual'}},
   ];
   const ios = [
     {id:'a', num:'211', text:'Scan the flight tracking and position report information', taskId:'t1', deps:[]},
@@ -273,6 +325,60 @@ function topoSeq(){
 }
 function neededBy(id){ return S.ios.filter(x => x.deps.includes(id)); }
 
+function tto(t){ t.tto = t.tto || {c:'',p:'',s:''}; return t.tto; }
+function emo(m){ m.emo = m.emo || {c:'',p:'',s:''}; return m.emo; }
+function moduleKind(m){
+  const members = S.ios.filter(i=>S.ioModule[i.id]===m.id);
+  if(!members.length) return {kind:'empty', members};
+  const tset = [...new Set(members.map(i=>i.taskId))];
+  if(tset.length===1){
+    const t = task(tset[0]);
+    const all = S.ios.filter(i=>i.taskId===t.id).length;
+    return members.length===all ? {kind:'full', t, members} : {kind:'partial', t, members};
+  }
+  return {kind:'multi', members};
+}
+const BAD_VERBS = ['know','knows','understand','understands','learn','learns','appreciate','be','aware','familiarize','familiarise','grasp','realize','realise'];
+function findings(){
+  const out = [];
+  const seq = topoSeq();
+  /* coverage */
+  const un = seq.filter(i=>!S.ioModule[i.id]);
+  if(S.modules.length && un.length) out.push({sev:'err', msg:'Not in any module: '+un.map(i=>i.num||'?').join(', ')+'. Every Intermediate Objective must be grouped into a module.', cite:'TDG Ch. 5 — Grouping Objectives into Modules'});
+  if(!S.modules.length && seq.length) out.push({sev:'info', msg:'No modules defined yet. Group the objectives in step 4.', cite:'TDG Ch. 5'});
+  /* modules */
+  S.modules.forEach(m=>{
+    const k = moduleKind(m);
+    const name = m.name || 'Unnamed module';
+    if(k.kind==='empty'){ out.push({sev:'err', msg:'\u201c'+name+'\u201d contains no objectives.', cite:'TDG Ch. 5'}); return; }
+    if(k.kind==='full'){
+      const t3 = tto(k.t);
+      if(!(t3.c && t3.p && t3.s)) out.push({sev:'info', msg:'\u201c'+name+'\u201d is Task '+(k.t.num||'')+' in full: its End-of-Module Objective is the Task Terminal Objective transferred unchanged. Record that objective (conditions, performance, standard) on the task in step 1.', cite:'TDG Ch. 5, 5.4'});
+    } else {
+      const e = emo(m);
+      if(!(e.c && e.p && e.s)) out.push({sev:'err', msg:'\u201c'+name+'\u201d '+(k.kind==='partial'?'contains part of a task':'combines objectives from several tasks')+': a completely new End-of-Module Objective (performance, conditions, standard) must be formulated for it.', cite:'TDG Ch. 5, 5.4'});
+    }
+    if(m.hours !== undefined && m.hours !== null && m.hours !== ''){
+      const h = Number(m.hours);
+      if(!isNaN(h) && (h < 2 || h > 16)) out.push({sev:'warn', msg:'\u201c'+name+'\u201d estimated at '+h+' h: the duration of a module should be in the range of about two hours to two days.', cite:'TDG Ch. 5 — conditions for determining the modules'});
+    } else {
+      out.push({sev:'info', msg:'\u201c'+name+'\u201d has no estimated duration. Record one to check it against the two-hour to two-day condition.', cite:'TDG Ch. 5'});
+    }
+    m.checks = m.checks || [false,false,false];
+    if(!m.checks.every(Boolean)) out.push({sev:'info', msg:'\u201c'+name+'\u201d: '+m.checks.filter(x=>!x).length+' of the three module conditions not yet confirmed (mastery test under real conditions; duration; objective in sight).', cite:'TDG Ch. 5'});
+  });
+  /* module order */
+  const dep = modDeps();
+  const posOf = {}; S.moduleOrder.forEach((id,i)=> posOf[id]=i);
+  S.moduleOrder.forEach(mid=>{ dep[mid]?.forEach(pre=>{ if(posOf[pre] > posOf[mid]) out.push({sev:'err', msg:'\u201c'+(mod(mid)?.name||'?')+'\u201d is sequenced before \u201c'+(mod(pre)?.name||'?')+'\u201d, on which its objectives depend.', cite:'TDG Annex 5 — Sequencing and Grouping of Training Objectives'}); }); });
+  /* verb doctrine */
+  seq.forEach(i=>{
+    const w = (i.text||'').trim().split(/\s+/)[0]?.toLowerCase();
+    if(w && BAD_VERBS.includes(w)) out.push({sev:'warn', msg:'Objective '+(i.num||'?')+' begins with \u201c'+w+'\u201d: objectives are described in performance terms with an action verb.', cite:'TDG Annex 1 — List of Verbs to Prepare Training Objectives'});
+    if(i.text && !i.text.trim()) out.push({sev:'warn', msg:'Objective '+(i.num||'?')+' has no text.', cite:'TDG Ch. 3, 3.8.1'});
+  });
+  return out;
+}
 const PALETTE = ['#4477AA','#EE6677','#228833','#CCBB44','#66CCEE','#AA3377','#BBBBBB'];
 function modColor(mid){
   const i = S.modules.findIndex(m=>m.id===mid);
@@ -308,7 +414,7 @@ document.querySelectorAll('nav button').forEach(b=>{
   b.addEventListener('click', ()=>{
     document.querySelectorAll('nav button').forEach(x=>x.classList.remove('on'));
     b.classList.add('on');
-    for(let i=0;i<4;i++) byId('tab'+i).style.display = (String(i)===b.dataset.tab) ? '' : 'none';
+    for(let i=0;i<6;i++) byId('tab'+i).style.display = (String(i)===b.dataset.tab) ? '' : 'none';
     renderAll();
   });
 });
@@ -351,6 +457,21 @@ function renderTasks(){
       row.append(n, tx, d);
       div.appendChild(row);
     });
+    /* Task Terminal Objective (optional; feeds the End-of-Module Objective) */
+    const t3 = tto(t);
+    const tb = document.createElement('div'); tb.className='tto';
+    tb.innerHTML = '<div class="lbl">Task Terminal Objective</div>';
+    const cps = document.createElement('div'); cps.className='cps';
+    [['c','Conditions'],['p','Performance'],['s','Standard']].forEach(([k,lab])=>{
+      const row = document.createElement('div'); row.className='row';
+      const sp = document.createElement('span'); sp.textContent = lab + ':';
+      const inp = document.createElement('input'); inp.type='text'; inp.value = t3[k];
+      inp.placeholder = k==='p' ? (t.name || '') : '';
+      inp.addEventListener('change', ()=>{ t3[k] = inp.value.trim(); save(); renderAll(); });
+      row.append(sp, inp); cps.appendChild(row);
+    });
+    tb.appendChild(cps);
+    div.appendChild(tb);
     const add = document.createElement('div'); add.style.padding='8px 10px';
     const ab = document.createElement('button'); ab.className='btn sm sec'; ab.textContent='+ Add objective';
     ab.addEventListener('click', ()=>{
@@ -602,6 +723,36 @@ function renderModules(){
       p.textContent = 'This module combines objectives from '+tset.size+' tasks — justify the grouping by similarity of subject and of the K/S/As involved.';
       body.appendChild(p);
     }
+    /* End-of-Module Objective */
+    const k = moduleKind(m);
+    if(k.kind==='full'){
+      const t3 = tto(k.t);
+      const v = document.createElement('div'); v.className='emoview'; v.style.marginTop='9px';
+      v.innerHTML = '<b>Conditions:</b> ' + (esc(t3.c)||'—') + '<br><b>Performance:</b> ' + (esc(t3.p)||'—') + '<br><b>Standard:</b> ' + (esc(t3.s)||'—');
+      body.appendChild(v);
+    } else if(k.kind==='partial' || k.kind==='multi'){
+      const e = emo(m);
+      const box = document.createElement('div'); box.className='tto'; box.style.marginTop='9px'; box.style.borderTop='none'; box.style.border='1px solid var(--line)'; box.style.borderRadius='7px';
+      box.innerHTML = '<div class="lbl">End-of-Module Objective (newly formulated)</div>';
+      const cps = document.createElement('div'); cps.className='cps';
+      [['c','Conditions'],['p','Performance'],['s','Standard']].forEach(([kk,lab])=>{
+        const row = document.createElement('div'); row.className='row';
+        const sp = document.createElement('span'); sp.textContent = lab + ':';
+        const inp = document.createElement('input'); inp.type='text'; inp.value = e[kk];
+        inp.addEventListener('change', ()=>{ e[kk] = inp.value.trim(); save(); renderAll(); });
+        row.append(sp, inp); cps.appendChild(row);
+      });
+      box.appendChild(cps);
+      body.appendChild(box);
+    }
+    /* estimated duration */
+    const dr = document.createElement('div'); dr.className='durrow';
+    const dl = document.createElement('span'); dl.textContent = 'Estimated duration:';
+    const di = document.createElement('input'); di.type='text'; di.inputMode='decimal'; di.value = (m.hours ?? '');
+    const du = document.createElement('span'); du.textContent = 'hours';
+    di.addEventListener('change', ()=>{ m.hours = di.value.trim(); save(); renderAll(); });
+    dr.append(dl, di, du);
+    body.appendChild(dr);
     /* checklist */
     const cx = document.createElement('div'); cx.className='checks';
     m.checks = m.checks || [false,false,false];
@@ -708,9 +859,72 @@ byId('btnProposeSeq').addEventListener('click', ()=>{
   toast('Sequence proposed from the dependencies — practical application as early as the prerequisites allow. You may still reorder it; violations will be flagged.');
 });
 
+/* ---------------- tab 4 : check ---------------- */
+function renderCheck(){
+  const box = byId('findList'); box.innerHTML = '';
+  const fs = findings();
+  const label = {err:'FIX', warn:'REVIEW', info:'NOTE'};
+  if(!fs.length){
+    const p = document.createElement('div'); p.className='msg ok';
+    p.textContent = 'No findings. The curriculum satisfies the checks of Design of Curriculum.';
+    box.appendChild(p); return;
+  }
+  const order = {err:0, warn:1, info:2};
+  fs.sort((a,b)=>order[a.sev]-order[b.sev]);
+  fs.forEach(f=>{
+    const d = document.createElement('div'); d.className = 'finding ' + f.sev;
+    d.innerHTML = '<span class="sev">' + label[f.sev] + '</span><span>' + esc(f.msg) + '<span class="cite">' + esc(f.cite) + '</span></span>';
+    box.appendChild(d);
+  });
+}
+
+/* ---------------- tab 5 : report ---------------- */
+function renderReport(){
+  const R = byId('report');
+  const seq = topoSeq();
+  let h = '<h1>Design of Curriculum \u2014 ' + esc(S.job||'') + '</h1>';
+  h += '<div class="rsub">Sequencing of Intermediate Objectives, grouping into modules and End-of-Module Objectives</div>';
+  /* 1 sequencing table */
+  h += '<h2>1&nbsp; Sequencing of the Intermediate Objectives</h2>';
+  h += '<div style="overflow-x:auto"><table><tr><th class="center">IO #</th><th>Dependent from</th><th>Intermediate objective</th><th>Necessary to</th></tr>';
+  seq.forEach(i=>{
+    const from = i.deps.map(d=>io(d)?.num).filter(Boolean).join(', ') || '\u2014';
+    const to = neededBy(i.id).map(x=>x.num).join(', ') || '\u2014';
+    h += '<tr><td class="center"><b>'+esc(i.num||'?')+'</b></td><td>'+esc(from)+'</td><td>'+esc(i.text)+'</td><td>'+esc(to)+'</td></tr>';
+  });
+  h += '</table></div>';
+  h += '<p style="margin-top:8px; font-size:13px"><b>Resulting sequence:</b> ' + seq.map(i=>esc(i.num||'?')).join(' \u2013 ') + '</p>';
+  /* 2 flowchart */
+  h += '<h2>2&nbsp; Sequencing flowchart</h2><div class="rflow">' + byId('flowwrap').innerHTML + '</div>';
+  /* 3 modules */
+  if(S.modules.length){
+    h += '<h2>3&nbsp; Grouping into modules and learning sequence</h2><ol class="rmods">';
+    S.moduleOrder.forEach(mid=>{
+      const m = mod(mid); if(!m) return;
+      const members = seq.filter(i=>S.ioModule[i.id]===mid);
+      const hrs = (m.hours!==undefined && m.hours!=='' && m.hours!==null) ? (' \u00b7 ' + esc(String(m.hours)) + ' h') : '';
+      h += '<li><b>'+esc(m.name||'Module')+'</b> \u2014 objectives ' + members.map(i=>esc(i.num)).join(', ') + hrs + '</li>';
+    });
+    h += '</ol>';
+    /* 4 EOM objectives */
+    h += '<h2>4&nbsp; End-of-Module Objectives</h2>';
+    S.moduleOrder.forEach(mid=>{
+      const m = mod(mid); if(!m) return;
+      const k = moduleKind(m);
+      let c='', p='', st='', note='';
+      if(k.kind==='full'){ const t3 = tto(k.t); c=t3.c; p=t3.p; st=t3.s; note=' (Task Terminal Objective of Task '+(k.t.num||'')+', transferred unchanged)'; }
+      else if(k.kind!=='empty'){ const e = emo(m); c=e.c; p=e.p; st=e.s; note=' (newly formulated)'; }
+      h += '<div class="remo"><b>'+esc(m.name||'Module')+esc(note)+'</b>'
+        + 'C)\u2002' + (esc(c)||'\u2014') + '<br>P)\u2002' + (esc(p)||'\u2014') + '<br>S)\u2002' + (esc(st)||'\u2014') + '</div>';
+    });
+  }
+  R.innerHTML = h;
+}
+byId('btnPrint').addEventListener('click', ()=> window.print());
+
 /* ---------------- render all ---------------- */
 function renderAll(){
-  renderTasks(); renderDeps(); renderFlow(); renderModules();
+  renderTasks(); renderDeps(); renderFlow(); renderModules(); renderCheck(); renderReport();
 }
 syncHdr();
 renderAll();
