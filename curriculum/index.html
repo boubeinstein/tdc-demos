@@ -1,0 +1,722 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#20242a">
+<title>Curriculum Designer — Sequencing &amp; Modules</title>
+<style>
+  :root{
+    --bg:#f4f1ea; --panel:#ffffff; --ink:#1d2733; --ink2:#4a5568; --ink3:#7b8794;
+    --line:#d8d2c4; --dark:#20242a; --dark2:#3a4250; --accent:#3e6ea5;
+    --io:#a8dcc4; --task:#f2d349; --warn:#b3261e; --ok:#2e7d5b;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{font-family:"Segoe UI",system-ui,sans-serif; background:var(--bg); color:var(--ink); min-height:100vh; display:flex; flex-direction:column;}
+  header{background:var(--dark); color:#e8ecf2; padding:10px 16px;}
+  header .row1{display:flex; align-items:baseline; gap:10px; flex-wrap:wrap;}
+  header h1{font-size:16px; font-weight:700;}
+  header .sub{font-size:12px; color:#9aa6b5;}
+  #hdrJob{border-bottom:1px dashed #6b7686; cursor:pointer; padding:0 2px 1px;}
+  #hdrJob[contenteditable="true"]{background:var(--dark2); color:#fff; border-radius:4px; outline:none; border-bottom-color:transparent;}
+  nav{display:flex; gap:6px; margin-top:10px; flex-wrap:wrap;}
+  nav button{
+    font:600 13px "Segoe UI",system-ui,sans-serif; padding:8px 13px; border-radius:8px 8px 0 0;
+    border:1px solid #4d5768; border-bottom:none; background:var(--dark2); color:#c8d1dc; cursor:pointer;
+  }
+  nav button.on{background:var(--bg); color:var(--ink); border-color:var(--bg);}
+  main{flex:1; padding:14px 16px 40px; max-width:1100px; width:100%; margin:0 auto;}
+  .hint{
+    font-size:13px; color:var(--ink2); background:#efe9da; border-left:4px solid var(--task);
+    padding:9px 12px; border-radius:0 8px 8px 0; margin-bottom:14px; line-height:1.45;
+  }
+  .panel{background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:14px; margin-bottom:14px;}
+  .panel h2{font-size:14px; margin-bottom:10px;}
+  .btn{
+    font:600 13px "Segoe UI",system-ui,sans-serif; color:#fff; background:var(--accent);
+    border:none; border-radius:7px; padding:8px 13px; cursor:pointer;
+  }
+  .btn.sec{background:var(--dark2);}
+  .btn.ghost{background:none; color:var(--accent); border:1px solid var(--accent);}
+  .btn.sm{padding:5px 9px; font-size:12px;}
+  .btn.danger{background:none; color:var(--warn); border:1px solid transparent; font-size:15px; padding:2px 7px;}
+  input[type=text]{
+    font:14px "Segoe UI",system-ui,sans-serif; padding:7px 9px; border:1px solid var(--line);
+    border-radius:7px; background:#fff; color:var(--ink); width:100%;
+  }
+  input.num{width:64px; font-weight:700; text-align:center;}
+  .taskblock{border:1px solid var(--line); border-radius:9px; margin-bottom:12px; overflow:hidden;}
+  .taskhead{display:flex; gap:8px; align-items:center; background:#faf3d2; padding:9px 10px; border-bottom:1px solid var(--line);}
+  .taskhead .sw{width:14px; height:14px; background:var(--task); border-radius:3px; flex:none;}
+  .iorow{display:flex; gap:8px; align-items:center; padding:7px 10px; border-bottom:1px solid #eee9dd;}
+  .iorow:last-child{border-bottom:none;}
+  .iorow .sw{width:12px; height:12px; background:var(--io); border-radius:3px; flex:none;}
+  .chips{display:flex; flex-wrap:wrap; gap:6px;}
+  .chip{
+    font:600 12px "Segoe UI",system-ui,sans-serif; padding:6px 10px; border-radius:16px;
+    border:1.5px solid var(--line); background:#fff; cursor:pointer; user-select:none;
+  }
+  .chip.on{background:var(--io); border-color:#5cae8c;}
+  .chip.mod{border-style:dashed;}
+  .deprow{display:flex; gap:10px; align-items:flex-start; padding:9px 0; border-bottom:1px solid #eee9dd; flex-wrap:wrap;}
+  .deprow .who{flex:0 0 300px; min-width:230px; font-size:13px;}
+  .deprow .who b{font-size:14px;}
+  .deprow .who .from-task{color:var(--ink3); font-size:11px;}
+  .seqline{
+    font:700 15px "Segoe UI",system-ui,sans-serif; background:#eaf3ea; border:1px solid #bcd8bc;
+    padding:10px 12px; border-radius:8px; letter-spacing:.03em;
+  }
+  table{border-collapse:collapse; width:100%; font-size:13px;}
+  th,td{border:1px solid var(--line); padding:7px 9px; text-align:left; vertical-align:top;}
+  th{background:#f2eee3; font-size:12px;}
+  td.center,th.center{text-align:center;}
+  #flowwrap{overflow-x:auto; border:1px solid var(--line); border-radius:9px; background:#fbf8f1;}
+  .legend{display:flex; gap:14px; flex-wrap:wrap; margin-top:10px; font-size:12px; color:var(--ink2); align-items:center;}
+  .legend .key{display:flex; gap:6px; align-items:center;}
+  .legend .dot{width:12px; height:12px; border-radius:3px;}
+  .modcard{border:1px solid var(--line); border-radius:9px; margin-bottom:12px; overflow:hidden;}
+  .modhead{display:flex; gap:8px; align-items:center; padding:9px 10px; border-bottom:1px solid var(--line);}
+  .modhead .dot{width:14px; height:14px; border-radius:4px; flex:none;}
+  .modbody{padding:10px;}
+  .checks{margin-top:9px; font-size:12.5px; color:var(--ink2); display:flex; flex-direction:column; gap:5px;}
+  .checks label{display:flex; gap:7px; align-items:flex-start; cursor:pointer; line-height:1.35;}
+  .checks input{margin-top:2px;}
+  .msg{font-size:12.5px; padding:7px 10px; border-radius:7px; margin-top:8px; line-height:1.4;}
+  .msg.err{background:#fbe9e7; color:var(--warn); border:1px solid #edbcb7;}
+  .msg.ok{background:#e8f3ec; color:var(--ok); border:1px solid #bcd8c7;}
+  .msg.note{background:#eef2f7; color:#3d5570; border:1px solid #c9d6e5;}
+  .modseq{display:flex; flex-direction:column; gap:8px;}
+  .modseq .mrow{display:flex; gap:8px; align-items:center; background:#fff; border:1.5px solid var(--line); border-radius:8px; padding:8px 10px;}
+  .modseq .mrow b{flex:1;}
+  #toast{
+    position:fixed; left:50%; bottom:22px; transform:translateX(-50%); background:var(--dark); color:#fff;
+    font-size:13px; padding:10px 16px; border-radius:9px; display:none; z-index:99; max-width:92vw; text-align:center;
+  }
+  .toolbar{display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px;}
+  .small{font-size:12px; color:var(--ink3);}
+  @media (max-width:640px){ .deprow .who{flex-basis:100%;} }
+</style>
+</head>
+<body>
+<header>
+  <div class="row1">
+    <h1>Curriculum Designer</h1>
+    <span class="sub">Design of Curriculum &middot; <span id="hdrJob" title="Tap to edit the job title">Flight Dispatcher</span></span>
+  </div>
+  <nav>
+    <button data-tab="0" class="on">1 &middot; Objectives</button>
+    <button data-tab="1">2 &middot; Dependencies</button>
+    <button data-tab="2">3 &middot; Flowchart</button>
+    <button data-tab="3">4 &middot; Modules</button>
+  </nav>
+</header>
+
+<main>
+  <!-- TAB 0 : OBJECTIVES -->
+  <section id="tab0">
+    <div class="hint">Enter the tasks and their Intermediate Objectives exactly as they appear on the Task Description forms from Job Analysis. The order below is the order of performance on the job.</div>
+    <div class="toolbar">
+      <button class="btn sec" id="btnLoadF1">Load example: Function 1</button>
+      <button class="btn sec" id="btnLoadF2">Load example: Function 2</button>
+      <button class="btn ghost" id="btnBlank">Start blank</button>
+      <span style="flex:1"></span>
+      <button class="btn ghost" id="btnExport">Export</button>
+      <button class="btn ghost" id="btnImport">Import</button>
+      <input type="file" id="fileImport" accept=".json" style="display:none">
+    </div>
+    <div id="taskList"></div>
+    <button class="btn" id="btnAddTask">+ Add task</button>
+  </section>
+
+  <!-- TAB 1 : DEPENDENCIES -->
+  <section id="tab1" style="display:none">
+    <div class="hint">Ask for each objective: does it depend on the outcome of another objective, and is its own outcome needed before the next objective can be attained? Tap the chips to mark what each objective depends on. A dependency that would go in a circle is refused.</div>
+    <div class="panel"><h2>Dependency analysis</h2><div id="depList"></div></div>
+    <div class="panel"><h2>Resulting sequence</h2>
+      <div class="seqline" id="seqLine"></div>
+      <p class="small" style="margin-top:8px">Computed from the dependencies; objectives free of any dependency on each other keep the order of performance on the job, the simpler before the more complex.</p>
+    </div>
+    <div class="panel"><h2>Sequencing table</h2><div style="overflow-x:auto"><table id="seqTable"></table></div></div>
+  </section>
+
+  <!-- TAB 2 : FLOWCHART -->
+  <section id="tab2" style="display:none">
+    <div class="hint">The proposed final sequencing flowchart. Each row is a task; the arrows are the dependencies marked in step 2. Once modules are defined in step 4, each objective carries its module colour.</div>
+    <div id="flowwrap"></div>
+    <div class="legend" id="flowLegend"></div>
+  </section>
+
+  <!-- TAB 3 : MODULES -->
+  <section id="tab3" style="display:none">
+    <div class="hint">Group the objectives into modules on the basis of similarity of subject and practicality. Three possibilities: a task becomes a module; a task is split into modules; tasks or their objectives are combined into one module. Check each module against the three conditions.</div>
+    <div class="toolbar">
+      <button class="btn" id="btnAutoGroup">Each task becomes one module</button>
+      <button class="btn sec" id="btnAddModule">+ Add empty module</button>
+    </div>
+    <div class="panel">
+      <h2>Assign objectives</h2>
+      <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:9px">
+        <span class="small">Tapping an objective assigns it to:</span>
+        <select id="selActive" style="font:600 13px 'Segoe UI'; padding:6px 8px; border-radius:7px; border:1px solid var(--line)"></select>
+      </div>
+      <div class="chips" id="assignChips"></div>
+      <div class="msg note" id="assignMsg" style="display:none"></div>
+    </div>
+    <div id="modList"></div>
+    <div class="panel">
+      <h2>Learning sequence of the modules</h2>
+      <div class="toolbar" style="margin-bottom:10px">
+        <button class="btn sec sm" id="btnProposeSeq">Propose sequence from the dependencies</button>
+      </div>
+      <div class="modseq" id="modSeq"></div>
+      <div id="modSeqMsgs"></div>
+      <p class="small" style="margin-top:9px">Choose the sequence so that practical application comes as close as possible to the learning of the K/S/As involved. A module must come after any module whose objectives it depends on.</p>
+    </div>
+  </section>
+</main>
+
+<div id="toast"></div>
+
+<script>
+(function(){
+"use strict";
+let uid = 0;
+const nid = p => p + (++uid) + '_' + Math.floor(Math.random()*1e5);
+
+/* ---------------- example data ---------------- */
+function exampleF1(){
+  const t = [
+    {id:'t1', num:'1.1', name:'Analyse the meteorological conditions for the flight'},
+    {id:'t2', num:'1.2', name:'Determine the route and flight levels for the flight'},
+    {id:'t3', num:'1.3', name:'Calculate the fuel required for the flight'},
+  ];
+  const ios = [
+    {id:'a', num:'111', text:'Obtain the meteorological reports and forecasts for the route and aerodromes', taskId:'t1', deps:[]},
+    {id:'b', num:'112', text:'Determine the operational impact of significant weather on the flight', taskId:'t1', deps:['a']},
+    {id:'c', num:'121', text:'Check the NOTAMs and airspace restrictions along the intended route', taskId:'t2', deps:[]},
+    {id:'d', num:'122', text:'Select the route and cruising levels for the operational flight plan', taskId:'t2', deps:['b','c']},
+    {id:'e', num:'131', text:'Estimate the trip, contingency, alternate and reserve fuel quantities', taskId:'t3', deps:['d']},
+    {id:'f', num:'132', text:'Verify the fuel figures against the aircraft load and performance limits', taskId:'t3', deps:['e']},
+  ];
+  return {job:'Flight Dispatcher', tasks:t, ios:ios, modules:[], ioModule:{}, moduleOrder:[]};
+}
+function exampleF2(){
+  const t = [
+    {id:'t1', num:'2.1', name:'Monitor the progress of each flight against the operational flight plan'},
+    {id:'t2', num:'2.2', name:'Inform the pilot-in-command of significant operational changes'},
+    {id:'t3', num:'2.3', name:'Initiate the applicable emergency procedures'},
+  ];
+  const ios = [
+    {id:'a', num:'211', text:'Scan the flight tracking and position report information', taskId:'t1', deps:[]},
+    {id:'b', num:'212', text:'Detect deviations from the operational flight plan', taskId:'t1', deps:['a']},
+    {id:'c', num:'221', text:'Obtain the updated meteorological and NOTAM information affecting the flight', taskId:'t2', deps:['b']},
+    {id:'d', num:'222', text:'Relay the updated operational information to the flight crew', taskId:'t2', deps:['c']},
+    {id:'e', num:'231', text:'Notify the authorities and company departments concerned', taskId:'t3', deps:['b']},
+    {id:'f', num:'232', text:'Record the events and the actions taken', taskId:'t3', deps:['e']},
+  ];
+  return {job:'Flight Dispatcher', tasks:t, ios:ios, modules:[], ioModule:{}, moduleOrder:[]};
+}
+
+/* ---------------- state ---------------- */
+let S = null;
+function save(){ try{ localStorage.setItem('cdes.state', JSON.stringify(S)); }catch(e){} }
+function load(){
+  try{
+    const raw = localStorage.getItem('cdes.state');
+    if(raw){ S = JSON.parse(raw); return; }
+  }catch(e){}
+  S = exampleF1();
+}
+load();
+
+/* ---------------- helpers ---------------- */
+const byId = id => document.getElementById(id);
+function toast(m){
+  const t = byId('toast'); t.textContent = m; t.style.display = 'block';
+  clearTimeout(t._h); t._h = setTimeout(()=> t.style.display='none', 3200);
+}
+function io(id){ return S.ios.find(i=>i.id===id); }
+function task(id){ return S.tasks.find(t=>t.id===id); }
+function mod(id){ return S.modules.find(m=>m.id===id); }
+function jobOrder(){
+  const ti = {}; S.tasks.forEach((t,i)=> ti[t.id]=i);
+  return S.ios.slice().sort((a,b)=>{
+    const d = (ti[a.taskId]??99) - (ti[b.taskId]??99);
+    return d !== 0 ? d : S.ios.indexOf(a) - S.ios.indexOf(b);
+  });
+}
+function reaches(fromId, toId, seen){ /* is toId reachable from fromId following deps upward? */
+  if(fromId === toId) return true;
+  seen = seen || new Set();
+  if(seen.has(fromId)) return false;
+  seen.add(fromId);
+  const f = io(fromId);
+  if(!f) return false;
+  return f.deps.some(d => reaches(d, toId, seen));
+}
+function topoSeq(){
+  const order = jobOrder();
+  const done = new Set(); const out = [];
+  let guard = 0;
+  while(out.length < order.length && guard++ < 500){
+    let progressed = false;
+    for(const i of order){
+      if(done.has(i.id)) continue;
+      if(i.deps.every(d => done.has(d) || !io(d))){
+        out.push(i); done.add(i.id); progressed = true;
+      }
+    }
+    if(!progressed) break; /* cycle safeguard */
+  }
+  order.forEach(i => { if(!done.has(i.id)) out.push(i); });
+  return out;
+}
+function neededBy(id){ return S.ios.filter(x => x.deps.includes(id)); }
+
+const PALETTE = ['#4477AA','#EE6677','#228833','#CCBB44','#66CCEE','#AA3377','#BBBBBB'];
+function modColor(mid){
+  const i = S.modules.findIndex(m=>m.id===mid);
+  return i >= 0 ? PALETTE[i % PALETTE.length] : '#9aa6b5';
+}
+function modDeps(){ /* module -> set of modules it depends on */
+  const dep = {};
+  S.modules.forEach(m => dep[m.id] = new Set());
+  S.ios.forEach(i => {
+    const mi = S.ioModule[i.id];
+    if(!mi) return;
+    i.deps.forEach(d => {
+      const md = S.ioModule[d];
+      if(md && md !== mi) dep[mi].add(md);
+    });
+  });
+  return dep;
+}
+
+/* ---------------- render: header + tabs ---------------- */
+const hdrJob = byId('hdrJob');
+function syncHdr(){ hdrJob.textContent = S.job || 'Job'; document.title = 'Curriculum Designer — ' + (S.job || ''); }
+hdrJob.addEventListener('click', ()=>{
+  if(hdrJob.getAttribute('contenteditable')==='true') return;
+  hdrJob.setAttribute('contenteditable','true'); hdrJob.focus();
+  const r=document.createRange(); r.selectNodeContents(hdrJob);
+  const s=getSelection(); s.removeAllRanges(); s.addRange(r);
+});
+hdrJob.addEventListener('blur', ()=>{ hdrJob.removeAttribute('contenteditable'); S.job = hdrJob.textContent.trim() || 'Job'; save(); syncHdr(); });
+hdrJob.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); hdrJob.blur(); } });
+
+document.querySelectorAll('nav button').forEach(b=>{
+  b.addEventListener('click', ()=>{
+    document.querySelectorAll('nav button').forEach(x=>x.classList.remove('on'));
+    b.classList.add('on');
+    for(let i=0;i<4;i++) byId('tab'+i).style.display = (String(i)===b.dataset.tab) ? '' : 'none';
+    renderAll();
+  });
+});
+
+/* ---------------- tab 0 : objectives ---------------- */
+function renderTasks(){
+  const box = byId('taskList'); box.innerHTML = '';
+  S.tasks.forEach(t=>{
+    const div = document.createElement('div'); div.className = 'taskblock';
+    const head = document.createElement('div'); head.className = 'taskhead';
+    head.innerHTML = '<span class="sw"></span>';
+    const num = document.createElement('input'); num.type='text'; num.className='num'; num.value = t.num;
+    num.addEventListener('change', ()=>{ t.num = num.value.trim(); save(); });
+    const name = document.createElement('input'); name.type='text'; name.value = t.name; name.placeholder = 'Task name (as on the Task Description form)';
+    name.addEventListener('change', ()=>{ t.name = name.value.trim(); save(); });
+    const del = document.createElement('button'); del.className='btn danger'; del.textContent='×'; del.title='Remove task and its objectives';
+    del.addEventListener('click', ()=>{
+      S.ios = S.ios.filter(i=>i.taskId!==t.id || (delete S.ioModule[i.id], i.taskId!==t.id));
+      S.ios = S.ios.filter(i=>i.taskId!==t.id);
+      S.ios.forEach(i=> i.deps = i.deps.filter(d=>io(d)));
+      S.tasks = S.tasks.filter(x=>x.id!==t.id);
+      save(); renderAll();
+    });
+    head.append(num, name, del);
+    div.appendChild(head);
+    S.ios.filter(i=>i.taskId===t.id).forEach(i=>{
+      const row = document.createElement('div'); row.className='iorow';
+      row.innerHTML = '<span class="sw"></span>';
+      const n = document.createElement('input'); n.type='text'; n.className='num'; n.value=i.num;
+      n.addEventListener('change', ()=>{ i.num=n.value.trim(); save(); });
+      const tx = document.createElement('input'); tx.type='text'; tx.value=i.text; tx.placeholder='Intermediate objective';
+      tx.addEventListener('change', ()=>{ i.text=tx.value.trim(); save(); });
+      const d = document.createElement('button'); d.className='btn danger'; d.textContent='×'; d.title='Remove objective';
+      d.addEventListener('click', ()=>{
+        S.ios = S.ios.filter(x=>x.id!==i.id);
+        S.ios.forEach(x=> x.deps = x.deps.filter(k=>k!==i.id));
+        delete S.ioModule[i.id];
+        save(); renderAll();
+      });
+      row.append(n, tx, d);
+      div.appendChild(row);
+    });
+    const add = document.createElement('div'); add.style.padding='8px 10px';
+    const ab = document.createElement('button'); ab.className='btn sm sec'; ab.textContent='+ Add objective';
+    ab.addEventListener('click', ()=>{
+      S.ios.push({id:nid('i'), num:'', text:'', taskId:t.id, deps:[]});
+      save(); renderAll();
+    });
+    add.appendChild(ab); div.appendChild(add);
+    box.appendChild(div);
+  });
+}
+byId('btnAddTask').addEventListener('click', ()=>{
+  S.tasks.push({id:nid('t'), num:'', name:''});
+  save(); renderAll();
+});
+byId('btnLoadF1').addEventListener('click', ()=>{ S = exampleF1(); save(); syncHdr(); renderAll(); toast('Function 1 example loaded'); });
+byId('btnLoadF2').addEventListener('click', ()=>{ S = exampleF2(); save(); syncHdr(); renderAll(); toast('Function 2 example loaded'); });
+byId('btnBlank').addEventListener('click', ()=>{
+  S = {job:S.job, tasks:[{id:nid('t'), num:'', name:''}], ios:[], modules:[], ioModule:{}, moduleOrder:[]};
+  save(); renderAll(); toast('Blank sheet — enter your tasks and objectives');
+});
+byId('btnExport').addEventListener('click', ()=>{
+  const blob = new Blob([JSON.stringify(S, null, 2)], {type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = (S.job||'curriculum').replace(/\s+/g,'_') + '_curriculum.json';
+  a.click();
+});
+byId('btnImport').addEventListener('click', ()=> byId('fileImport').click());
+byId('fileImport').addEventListener('change', e=>{
+  const f = e.target.files[0]; if(!f) return;
+  const r = new FileReader();
+  r.onload = ()=>{
+    try{
+      const d = JSON.parse(r.result);
+      if(!d.tasks || !d.ios) throw 0;
+      S = d; save(); syncHdr(); renderAll(); toast('Imported');
+    }catch(err){ toast('That file is not a curriculum export'); }
+  };
+  r.readAsText(f);
+});
+
+/* ---------------- tab 1 : dependencies ---------------- */
+function renderDeps(){
+  const box = byId('depList'); box.innerHTML = '';
+  const order = jobOrder();
+  order.forEach(i=>{
+    const row = document.createElement('div'); row.className='deprow';
+    const who = document.createElement('div'); who.className='who';
+    who.innerHTML = '<b>' + esc(i.num||'?') + '</b> — ' + esc(i.text||'(untitled)') +
+      '<div class="from-task">Task ' + esc(task(i.taskId)?.num||'') + '</div>';
+    const chips = document.createElement('div'); chips.className='chips';
+    const lab = document.createElement('span'); lab.className='small'; lab.style.alignSelf='center'; lab.textContent='depends on:';
+    chips.appendChild(lab);
+    order.filter(o=>o.id!==i.id).forEach(o=>{
+      const c = document.createElement('span'); c.className='chip' + (i.deps.includes(o.id)?' on':'');
+      c.textContent = o.num || '?';
+      c.title = o.text;
+      c.addEventListener('click', ()=>{
+        if(i.deps.includes(o.id)){
+          i.deps = i.deps.filter(d=>d!==o.id);
+        } else {
+          if(reaches(o.id, i.id)){
+            toast(esc(o.num) + ' already depends on ' + esc(i.num) + ' — a dependency cannot go in a circle.');
+            return;
+          }
+          i.deps.push(o.id);
+        }
+        save(); renderAll();
+      });
+      chips.appendChild(c);
+    });
+    if(order.length===1){ const s=document.createElement('span'); s.className='small'; s.style.alignSelf='center'; s.textContent='(no other objectives yet)'; chips.appendChild(s); }
+    row.append(who, chips);
+    box.appendChild(row);
+  });
+
+  const seq = topoSeq();
+  byId('seqLine').textContent = seq.map(i=>i.num||'?').join(' – ') || '—';
+
+  const tb = byId('seqTable');
+  let html = '<tr><th class="center">IO #</th><th>Dependent from</th><th>Intermediate objective</th><th>Necessary to</th></tr>';
+  seq.forEach(i=>{
+    const from = i.deps.map(d=>io(d)?.num).filter(Boolean).join(', ') || '—' + (i.deps.length===0 && neededBy(i.id).length ? '' : '');
+    const to = neededBy(i.id).map(x=>x.num).join(', ') || '—';
+    const indep = i.deps.length===0 && seq.length>1 && jobOrder()[0].id!==i.id ? '  (independent)' : '';
+    html += '<tr><td class="center"><b>'+esc(i.num||'?')+'</b></td><td>'+esc(from)+esc(indep)+'</td><td>'+esc(i.text)+'</td><td>'+esc(to)+'</td></tr>';
+  });
+  tb.innerHTML = html;
+}
+function esc(s){ return String(s??'').replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+/* ---------------- tab 2 : flowchart ---------------- */
+function renderFlow(){
+  const wrap = byId('flowwrap');
+  const seq = topoSeq();
+  if(!seq.length){ wrap.innerHTML = '<p class="small" style="padding:14px">No objectives yet — add them in step 1.</p>'; byId('flowLegend').innerHTML=''; return; }
+  const pos = {}; seq.forEach((i,k)=> pos[i.id]=k);
+  const rows = {}; S.tasks.forEach((t,r)=> rows[t.id]=r);
+  const COLW = 118, ROWH = 118, NW = 96, NH = 62, LX = 150, TY = 26;
+  const W = LX + seq.length*COLW + 30;
+  const H = TY + S.tasks.length*ROWH + 20;
+  let svg = '<svg xmlns="http://www.w3.org/2000/svg" width="'+W+'" height="'+H+'" font-family="Segoe UI, sans-serif">';
+  svg += '<defs><marker id="ah" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#5a6472"/></marker></defs>';
+  /* task row labels */
+  S.tasks.forEach((t,r)=>{
+    const y = TY + r*ROWH + ROWH/2;
+    svg += '<text x="12" y="'+(y-6)+'" font-size="12" font-weight="700" fill="#1d2733">Task '+esc(t.num)+'</text>';
+    svg += '<text x="12" y="'+(y+10)+'" font-size="10" fill="#7b8794">'+esc(clip(t.name, 24))+'</text>';
+  });
+  const xy = {};
+  seq.forEach(i=>{
+    const x = LX + pos[i.id]*COLW;
+    const r = rows[i.taskId] ?? 0;
+    const y = TY + r*ROWH + (ROWH-NH)/2;
+    xy[i.id] = {x, y};
+  });
+  /* arrows first (under nodes) */
+  seq.forEach(i=>{
+    i.deps.forEach(d=>{
+      const a = xy[d], b = xy[i.id];
+      if(!a || !b) return;
+      const sameRow = rows[io(d).taskId] === rows[i.taskId];
+      if(sameRow){
+        const x1 = a.x + NW, y1 = a.y + NH/2, x2 = b.x, y2 = b.y + NH/2;
+        const mx = (x1+x2)/2;
+        svg += '<path d="M'+x1+','+y1+' C'+mx+','+y1+' '+mx+','+y2+' '+x2+','+y2+'" fill="none" stroke="#5a6472" stroke-width="1.8" marker-end="url(#ah)"/>';
+      } else {
+        /* between tasks: leave from the side, arrive at the top or bottom centre of the target */
+        const down = b.y > a.y;
+        const x1 = a.x + NW, y1 = a.y + NH/2;
+        const x2 = b.x + NW/2, y2 = down ? b.y : b.y + NH;
+        svg += '<path d="M'+x1+','+y1+' C'+(x1+55)+','+y1+' '+x2+','+(down ? y2-42 : y2+42)+' '+x2+','+y2+'" fill="none" stroke="#5a6472" stroke-width="1.8" stroke-dasharray="5 5" marker-end="url(#ah)"/>';
+      }
+    });
+  });
+  /* nodes */
+  seq.forEach(i=>{
+    const p = xy[i.id];
+    const mid = S.ioModule[i.id];
+    const barc = mid ? modColor(mid) : '#c9c2b2';
+    svg += '<g>';
+    svg += '<rect x="'+p.x+'" y="'+p.y+'" width="'+NW+'" height="'+NH+'" rx="7" fill="#a8dcc4" stroke="#5cae8c" stroke-width="1.4"/>';
+    svg += '<rect x="'+p.x+'" y="'+p.y+'" width="'+NW+'" height="6" rx="3" fill="'+barc+'"/>';
+    svg += '<text x="'+(p.x+NW/2)+'" y="'+(p.y+27)+'" text-anchor="middle" font-size="15" font-weight="700" fill="#1d2733">'+esc(i.num||'?')+'</text>';
+    svg += '<text x="'+(p.x+NW/2)+'" y="'+(p.y+43)+'" text-anchor="middle" font-size="8.5" fill="#33413a">'+esc(clip(i.text, 22))+'</text>';
+    svg += '<title>'+esc(i.num+' — '+i.text)+'</title>';
+    svg += '</g>';
+  });
+  svg += '</svg>';
+  wrap.innerHTML = svg;
+  /* legend */
+  const lg = byId('flowLegend');
+  let l = '<span class="key"><span class="dot" style="background:#a8dcc4;border:1px solid #5cae8c"></span> Intermediate objective</span>' +
+          '<span class="key">solid arrow: dependency within a task &nbsp;·&nbsp; dashed arrow: dependency between tasks</span>';
+  if(S.modules.length){
+    l += S.modules.map(m=>'<span class="key"><span class="dot" style="background:'+modColor(m.id)+'"></span> '+esc(m.name||'Module')+'</span>').join('');
+  }
+  lg.innerHTML = l;
+}
+function clip(s, n){ s = String(s??''); return s.length>n ? s.slice(0,n-1)+'…' : s; }
+
+/* ---------------- tab 3 : modules ---------------- */
+const CHECKS = [
+  'The objectives grouped here can be tested in one mastery test reflecting real working conditions as closely as possible.',
+  'The estimated duration of the module is between about two hours and two days.',
+  'The trainee can see, throughout the module, how each instructional event leads to the end-of-module objective.',
+];
+function renderModules(){
+  /* active-module selector + assignment chips */
+  const sel = byId('selActive');
+  sel.innerHTML = S.modules.map(m=>'<option value="'+m.id+'">'+esc(m.name||'Module')+'</option>').join('') || '<option value="">— create a module first —</option>';
+  if(S._active && mod(S._active)) sel.value = S._active;
+  sel.onchange = ()=>{ S._active = sel.value; };
+  if(!S._active || !mod(S._active)) S._active = S.modules[0]?.id || '';
+
+  const chips = byId('assignChips'); chips.innerHTML='';
+  const seq = topoSeq();
+  seq.forEach(i=>{
+    const m = S.ioModule[i.id];
+    const c = document.createElement('span');
+    c.className = 'chip' + (m ? '' : ' mod');
+    c.textContent = i.num || '?';
+    c.title = i.text + (m ? ' — in ' + (mod(m)?.name||'') : ' — unassigned');
+    if(m){ c.style.background = modColor(m); c.style.borderColor = modColor(m); c.style.color = '#fff'; }
+    c.addEventListener('click', ()=>{
+      const act = byId('selActive').value;
+      if(S.ioModule[i.id] === act){ delete S.ioModule[i.id]; }
+      else if(act){ S.ioModule[i.id] = act; }
+      else { toast('Create a module first'); return; }
+      save(); renderAll();
+    });
+    chips.appendChild(c);
+  });
+  const un = seq.filter(i=>!S.ioModule[i.id]).length;
+  const am = byId('assignMsg');
+  if(seq.length && un){
+    am.style.display=''; am.className='msg err';
+    am.textContent = un + ' objective' + (un>1?'s are':' is') + ' not yet in any module — every intermediate objective must belong to a module.';
+  } else if(seq.length){
+    am.style.display=''; am.className='msg ok';
+    am.textContent = 'Every objective is assigned to a module.';
+  } else am.style.display='none';
+
+  /* module cards */
+  const list = byId('modList'); list.innerHTML='';
+  S.modules.forEach(m=>{
+    const card = document.createElement('div'); card.className='modcard';
+    const head = document.createElement('div'); head.className='modhead';
+    const dot = document.createElement('span'); dot.className='dot'; dot.style.background = modColor(m.id);
+    const name = document.createElement('input'); name.type='text'; name.value=m.name; name.placeholder='Module title (an activity, e.g. “Monitoring the Progress of Flights in Operation”)';
+    name.addEventListener('change', ()=>{ m.name = name.value.trim(); save(); renderAll(); });
+    const del = document.createElement('button'); del.className='btn danger'; del.textContent='×'; del.title='Remove module';
+    del.addEventListener('click', ()=>{
+      Object.keys(S.ioModule).forEach(k=>{ if(S.ioModule[k]===m.id) delete S.ioModule[k]; });
+      S.modules = S.modules.filter(x=>x.id!==m.id);
+      S.moduleOrder = S.moduleOrder.filter(x=>x!==m.id);
+      save(); renderAll();
+    });
+    head.append(dot, name, del);
+    card.appendChild(head);
+    const body = document.createElement('div'); body.className='modbody';
+    const members = topoSeq().filter(i=>S.ioModule[i.id]===m.id);
+    if(members.length){
+      const ch = document.createElement('div'); ch.className='chips';
+      members.forEach(i=>{
+        const c = document.createElement('span'); c.className='chip';
+        c.style.background = modColor(m.id); c.style.borderColor = modColor(m.id); c.style.color='#fff';
+        c.textContent = i.num; c.title = i.text + ' — tap to remove from this module';
+        c.addEventListener('click', ()=>{ delete S.ioModule[i.id]; save(); renderAll(); });
+        ch.appendChild(c);
+      });
+      body.appendChild(ch);
+    } else {
+      const p = document.createElement('div'); p.className='msg err'; p.textContent='Empty module — assign objectives to it, or remove it.';
+      body.appendChild(p);
+    }
+    /* structure notes */
+    const tset = new Set(members.map(i=>i.taskId));
+    if(members.length && tset.size===1){
+      const t = task([...tset][0]);
+      const all = S.ios.filter(i=>i.taskId===t.id).length;
+      const p = document.createElement('div'); p.className='msg note';
+      p.textContent = (members.length===all)
+        ? 'This module is Task '+ (t?.num||'') +' in full — its end-of-module objective is the Task Terminal Objective of that task.'
+        : 'This module contains part of Task '+ (t?.num||'') +' — the task is split across modules; state a post-training objective for what is deferred if needed.';
+      body.appendChild(p);
+    } else if(tset.size>1){
+      const p = document.createElement('div'); p.className='msg note';
+      p.textContent = 'This module combines objectives from '+tset.size+' tasks — justify the grouping by similarity of subject and of the K/S/As involved.';
+      body.appendChild(p);
+    }
+    /* checklist */
+    const cx = document.createElement('div'); cx.className='checks';
+    m.checks = m.checks || [false,false,false];
+    CHECKS.forEach((txt,k)=>{
+      const lab = document.createElement('label');
+      const cb = document.createElement('input'); cb.type='checkbox'; cb.checked = !!m.checks[k];
+      cb.addEventListener('change', ()=>{ m.checks[k]=cb.checked; save(); });
+      lab.append(cb, document.createTextNode(txt));
+      cx.appendChild(lab);
+    });
+    body.appendChild(cx);
+    card.appendChild(body);
+    list.appendChild(card);
+  });
+
+  /* module order */
+  if(!S.moduleOrder.length || S.moduleOrder.some(id=>!mod(id)) || S.modules.some(m=>!S.moduleOrder.includes(m.id))){
+    S.moduleOrder = S.modules.map(m=>m.id);
+  }
+  const seqBox = byId('modSeq'); seqBox.innerHTML='';
+  S.moduleOrder.forEach((mid, idx)=>{
+    const m = mod(mid); if(!m) return;
+    const row = document.createElement('div'); row.className='mrow';
+    row.style.borderColor = modColor(mid);
+    row.innerHTML = '<span class="dot" style="width:12px;height:12px;border-radius:3px;background:'+modColor(mid)+'"></span>';
+    const b = document.createElement('b'); b.textContent = (idx+1)+'.  '+(m.name||'Module');
+    const up = document.createElement('button'); up.className='btn sm sec'; up.textContent='↑'; up.disabled = idx===0;
+    const dn = document.createElement('button'); dn.className='btn sm sec'; dn.textContent='↓'; dn.disabled = idx===S.moduleOrder.length-1;
+    up.addEventListener('click', ()=>{ swap(S.moduleOrder, idx, idx-1); save(); renderAll(); });
+    dn.addEventListener('click', ()=>{ swap(S.moduleOrder, idx, idx+1); save(); renderAll(); });
+    row.append(b, up, dn);
+    seqBox.appendChild(row);
+  });
+  /* order validation */
+  const msgs = byId('modSeqMsgs'); msgs.innerHTML='';
+  const dep = modDeps();
+  const posOf = {}; S.moduleOrder.forEach((id,i)=> posOf[id]=i);
+  let bad = 0;
+  S.moduleOrder.forEach(mid=>{
+    dep[mid]?.forEach(pre=>{
+      if(posOf[pre] > posOf[mid]){
+        bad++;
+        const exI = S.ios.find(i=>S.ioModule[i.id]===mid && i.deps.some(d=>S.ioModule[d]===pre));
+        const exD = exI ? io(exI.deps.find(d=>S.ioModule[d]===pre)) : null;
+        const p = document.createElement('div'); p.className='msg err';
+        p.textContent = '“'+(mod(mid)?.name||'?')+'” cannot precede “'+(mod(pre)?.name||'?')+'”: '+(exI?.num||'an objective')+' depends on '+(exD?.num||'one of its objectives')+'.';
+        msgs.appendChild(p);
+      }
+    });
+  });
+  if(!bad && S.modules.length){
+    const p = document.createElement('div'); p.className='msg ok';
+    p.textContent = 'The learning sequence respects every dependency between the modules.';
+    msgs.appendChild(p);
+  }
+}
+function swap(a,i,j){ const t=a[i]; a[i]=a[j]; a[j]=t; }
+
+byId('btnAutoGroup').addEventListener('click', ()=>{
+  S.modules = []; S.ioModule = {};
+  S.tasks.forEach(t=>{
+    const members = S.ios.filter(i=>i.taskId===t.id);
+    if(!members.length) return;
+    const m = {id:nid('m'), name: gerundize(t.name), checks:[false,false,false]};
+    S.modules.push(m);
+    members.forEach(i=> S.ioModule[i.id]=m.id);
+  });
+  S.moduleOrder = S.modules.map(m=>m.id);
+  save(); renderAll();
+  toast('One module per task — the most common of the three grouping possibilities, but not automatic: check each module against the three conditions.');
+});
+function gerundize(name){
+  if(!name) return 'Module';
+  const w = name.split(' ');
+  const map = {'Analyse':'Analysing','Determine':'Determining','Calculate':'Calculating','Monitor':'Monitoring','Inform':'Informing','Initiate':'Initiating','Perform':'Performing','Check':'Checking','Select':'Selecting','Verify':'Verifying','Prepare':'Preparing','Conduct':'Conducting','Maintain':'Maintaining','Troubleshoot':'Troubleshooting','Obtain':'Obtaining','Record':'Recording','Notify':'Notifying','Relay':'Relaying','Estimate':'Estimating','Scan':'Scanning','Detect':'Detecting'};
+  if(map[w[0]]) { w[0]=map[w[0]]; return w.join(' ').replace(/^(\w)/, c=>c.toUpperCase()); }
+  return name;
+}
+byId('btnAddModule').addEventListener('click', ()=>{
+  S.modules.push({id:nid('m'), name:'', checks:[false,false,false]});
+  S.moduleOrder = S.modules.map(m=>m.id);
+  save(); renderAll();
+});
+byId('btnProposeSeq').addEventListener('click', ()=>{
+  /* topological order of modules; tiebreak = earliest member in the objective sequence */
+  const dep = modDeps();
+  const seq = topoSeq();
+  const first = {}; S.modules.forEach(m=>{
+    const i = seq.findIndex(x=>S.ioModule[x.id]===m.id);
+    first[m.id] = i<0 ? 999 : i;
+  });
+  const remaining = S.modules.map(m=>m.id);
+  const out = [];
+  let guard=0;
+  while(remaining.length && guard++<200){
+    const ready = remaining.filter(id=> [...(dep[id]||[])].every(d=>out.includes(d)) )
+                           .sort((a,b)=>first[a]-first[b]);
+    if(!ready.length){ out.push(...remaining); break; }
+    out.push(ready[0]);
+    remaining.splice(remaining.indexOf(ready[0]),1);
+  }
+  S.moduleOrder = out;
+  save(); renderAll();
+  toast('Sequence proposed from the dependencies — practical application as early as the prerequisites allow. You may still reorder it; violations will be flagged.');
+});
+
+/* ---------------- render all ---------------- */
+function renderAll(){
+  renderTasks(); renderDeps(); renderFlow(); renderModules();
+}
+syncHdr();
+renderAll();
+
+if('serviceWorker' in navigator){ /* harmless standalone; caches via the site SW when hosted */ }
+})();
+</script>
+</body>
+</html>
