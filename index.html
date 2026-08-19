@@ -135,6 +135,27 @@
     font:600 11px "Segoe UI",system-ui,sans-serif; background:#eef1f5; border:1px solid #cdd5df;
     border-bottom-width:2px; border-radius:4px; padding:1px 5px;
   }
+  .dlg-ov{
+    position:fixed; inset:0; background:rgba(20,23,28,.55); z-index:160;
+    display:flex; align-items:center; justify-content:center; padding:18px;
+  }
+  .dlg-box{
+    background:#fff; color:#1d2733; border-radius:12px; max-width:440px; width:100%;
+    max-height:80vh; overflow-y:auto; padding:16px 18px; box-shadow:0 14px 44px rgba(0,0,0,.35);
+    font-family:"Segoe UI",system-ui,sans-serif;
+  }
+  .dlg-box h2{font-size:15px; margin-bottom:10px;}
+  .dlg-p{font-size:13px; color:#4a5568; line-height:1.5; margin-bottom:6px;}
+  .dlg-row{display:flex; gap:8px; flex-wrap:wrap; margin-top:14px;}
+  .dlg-row .btn{color:#fff;}
+  .dlg-row .btn.primary{background:#3e6ea5;}
+  .dlg-inp{width:100%; font:14px "Segoe UI",system-ui,sans-serif; padding:8px 10px; border:1px solid #cdd5df; border-radius:7px;}
+  .dlg-item{display:flex; gap:8px; align-items:center; margin-bottom:7px;}
+  .dlg-open{
+    flex:1; text-align:left; font:600 13px "Segoe UI",system-ui,sans-serif; padding:9px 11px;
+    background:#f2f5f9; border:1px solid #cdd5df; border-radius:8px; cursor:pointer; color:#1d2733;
+  }
+  .dlg-open:hover{background:#e6ecf3;}
   #toast{
     position:fixed; left:50%; bottom:24px; transform:translateX(-50%); background:rgba(32,36,42,.95);
     color:#e8ecf2; font-size:13px; padding:10px 18px; border-radius:9px; display:none; z-index:120;
@@ -151,6 +172,7 @@
   <button class="btn" id="btnLinks">Links: on</button>
   <button class="btn" id="btnAdd">+ Add card</button>
   <button class="btn" id="btnLink" title="Link a card to its parent">Link</button>
+  <button class="btn" id="btnBoards">Boards</button>
   <button class="btn" id="btnPresent">Present</button>
   <button class="btn" id="btnHelp" title="Help">?</button>
   <button class="btn" id="btnZoomOut" title="Zoom out">&minus;</button>
@@ -187,6 +209,10 @@
         <dd>Press <kbd>Ctrl</kbd>+<kbd>Z</kbd> (<kbd>&#8984;</kbd>+<kbd>Z</kbd> on Mac), or tap <b>Undo</b> on the message that appears after deleting. Deletions can be undone one by one, most recent first.</dd>
         <dt>Present</dt>
         <dd><b>Present</b> clears the wall and reveals one level per tap or <kbd>Space</kbd>: job title, functions, tasks, subtasks.</dd>
+        <dt>Numbering</dt>
+        <dd>Numbers follow the hierarchy automatically: functions are numbered in order (1.0, 2.0&hellip;), a task takes its number when linked to a function (2.1, 2.2&hellip;), a subtask when linked to a task (2.1.1&hellip;). Deleting or moving a card renumbers the rest.</dd>
+        <dt>Save and open boards</dt>
+        <dd><b>Boards</b> saves the current board under a name on this device, opens a saved one, starts a new board, or exports/imports a board as a file to share between devices. Your work is also saved automatically as you go.</dd>
         <dt>Titles</dt>
         <dd>The job title card, the group name and the batch label in the top bar are all editable &mdash; tap the dotted text. The board remembers them on this device.</dd>
       </dl>
@@ -229,6 +255,7 @@
   }
   const svg = document.getElementById('links');
   let uid = 0;
+  const undoStack = [];
   const cards = [];   // {id,type,tag,text,parent,el,x,y,rot,hiddenLevel}
 
   const LEVELS = {job:0, func:1, task:2, sub:3};
@@ -248,7 +275,8 @@
     return c;
   }
 
-  /* ------- Flight Dispatcher DACUM data ------- */
+  /* ------- board data ------- */
+  function buildExample(){
   const job = addCard('job','Job Title','Flight Dispatcher', null);
   const f1  = addCard('func','Function 1.0','Perform operational flight planning', job.id);
   const f2  = addCard('func','Function 2.0','Monitor flights in operation', job.id);
@@ -270,6 +298,66 @@
   addCard('sub','Subtask 2.2.2','Relay the updated operational information to the flight crew', t22.id);
   addCard('sub','Subtask 2.3.1','Notify the authorities and company departments concerned', t23.id);
   addCard('sub','Subtask 2.3.2','Record the events and the actions taken', t23.id);
+    renumber();
+  }
+  function clearBoard(){
+    cards.slice().forEach(c=> c.el.remove());
+    cards.length = 0;
+    undoStack.length = 0;
+  }
+  function serializeBoard(){
+    return { v:1, cards: cards.map(c=>({
+      type:c.type, text:c.el.querySelector('.txt').textContent,
+      parentIdx: cards.findIndex(k=>k.id===c.parent),
+      x:c.x, y:c.y, rot:c.rot }))
+    };
+  }
+  function loadBoardData(data){
+    clearBoard();
+    const made = [];
+    (data.cards||[]).forEach(d=>{
+      const c = addCard(d.type, '', d.text||'', null);
+      made.push(c);
+      place(c, d.x||100, d.y||100, d.rot||0);
+    });
+    (data.cards||[]).forEach((d,i)=>{ if(d.parentIdx>=0 && made[d.parentIdx]) made[i].parent = made[d.parentIdx].id; });
+    renumber();
+    try{ syncTitles(); }catch(e){}
+    try{ drawLinks(); }catch(e){}
+  }
+  function autosaveBoard(){ try{ localStorage.setItem('dacum.autosave', JSON.stringify(serializeBoard())); }catch(e){} }
+  function setTag(c, t){ c.el.querySelector('.tag').textContent = t; }
+  function renumber(){
+    const exists = id => cards.some(k=>k.id===id);
+    cards.filter(c=>c.type==='job').forEach(j=> setTag(j, 'Job Title'));
+    let fn = 0;
+    const funcs = cards.filter(c=>c.type==='func');
+    funcs.forEach(f=>{
+      if(f.parent && exists(f.parent)){ fn++; f.num = String(fn); setTag(f, 'Function ' + fn + '.0'); }
+      else { f.num = null; setTag(f, 'Function'); }
+    });
+    cards.filter(c=>c.type==='task').forEach(t=>{ t.num = null; });
+    funcs.filter(f=>f.num).forEach(f=>{
+      let tn = 0;
+      cards.filter(c=>c.type==='task' && c.parent===f.id).forEach(t=>{ tn++; t.num = f.num + '.' + tn; setTag(t, 'Task ' + t.num); });
+    });
+    cards.filter(c=>c.type==='task' && !c.num).forEach(t=> setTag(t, 'Task'));
+    cards.filter(c=>c.type==='sub').forEach(x=>{ x.num = null; });
+    cards.filter(c=>c.type==='task' && c.num).forEach(t=>{
+      let sn = 0;
+      cards.filter(c=>c.type==='sub' && c.parent===t.id).forEach(x=>{ sn++; x.num = t.num + '.' + sn; setTag(x, 'Subtask ' + x.num); });
+    });
+    cards.filter(c=>c.type==='sub' && !c.num).forEach(x=> setTag(x, 'Subtask'));
+  }
+  function structureChanged(){ renumber(); drawLinks(); autosaveBoard(); }
+  (function initBoard(){
+    let restored = false;
+    try{
+      const raw = localStorage.getItem('dacum.autosave');
+      if(raw){ const d = JSON.parse(raw); if(d && d.cards && d.cards.length){ loadBoardData(d); restored = true; } }
+    }catch(e){}
+    if(!restored) buildExample();
+  })();
 
   /* ------- layout ------- */
   function place(c, x, y, rot){
@@ -355,14 +443,17 @@
   }
 
   /* ------- undo deleted cards ------- */
-  const undoStack = [];
   function undoDelete(){
     const d = undoStack.pop();
     if(!d){ toast('Nothing to undo.'); return; }
     const c = addCard(d.type, d.tag, d.text, d.parent);
+    if(typeof d.idx === 'number' && d.idx >= 0 && d.idx < cards.length - 1){
+      cards.splice(cards.indexOf(c), 1);
+      cards.splice(d.idx, 0, c);
+    }
     place(c, d.x, d.y, d.rot);
-    drawLinks();
-    toast(d.tag + ' restored.');
+    structureChanged();
+    toast(c.el.querySelector('.tag').textContent + ' restored.');
   }
   document.addEventListener('keydown', e=>{
     if((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z'){
@@ -372,6 +463,122 @@
       undoDelete();
     }
   });
+
+  /* ------- dialog ------- */
+  function dialog(title, bodyNode, buttons){
+    const ov = document.createElement('div');
+    ov.className = 'dlg-ov';
+    const box = document.createElement('div');
+    box.className = 'dlg-box';
+    const h = document.createElement('h2'); h.textContent = title;
+    box.appendChild(h);
+    if(typeof bodyNode === 'string'){ const p = document.createElement('p'); p.className='dlg-p'; p.textContent = bodyNode; box.appendChild(p); }
+    else if(bodyNode){ box.appendChild(bodyNode); }
+    const row = document.createElement('div'); row.className = 'dlg-row';
+    buttons.forEach(bt=>{
+      const b = document.createElement('button');
+      b.className = 'btn' + (bt.primary ? ' primary' : ' sec');
+      b.textContent = bt.label;
+      b.addEventListener('click', ()=>{ ov.remove(); bt.cb && bt.cb(); });
+      row.appendChild(b);
+    });
+    box.appendChild(row);
+    ov.appendChild(box);
+    ov.addEventListener('click', e=>{ if(e.target===ov) ov.remove(); });
+    document.body.appendChild(ov);
+    return {close: ()=>ov.remove(), box};
+  }
+
+  /* ------- boards: save / open ------- */
+  function boardsStore(){ try{ return JSON.parse(localStorage.getItem('dacum.boards')||'{}'); }catch(e){ return {}; } }
+  function boardsWrite(o){ try{ localStorage.setItem('dacum.boards', JSON.stringify(o)); }catch(e){} }
+  function newBoard(){
+    clearBoard();
+    const j = addCard('job', 'Job Title', 'New job — double-tap to edit', null);
+    place(j, BOARD_CX() - 85, 60, rand(-2,2));
+    structureChanged();
+    try{ syncTitles(); }catch(e){}
+    toast('New board. Edit the job title, then add and link functions, tasks and subtasks.');
+  }
+  function BOARD_CX(){ return (typeof BOARD_W !== 'undefined' ? BOARD_W : board.clientWidth) / 2; }
+  function saveBoardAs(){
+    const jc = cards.find(c=>c.type==='job');
+    const def = jc ? jc.el.querySelector('.txt').textContent.trim() : 'Board';
+    const wrap = document.createElement('div');
+    const inp = document.createElement('input'); inp.type='text'; inp.value = def; inp.className='dlg-inp';
+    wrap.appendChild(inp);
+    const d = dialog('Save board as', wrap, [
+      {label:'Save', primary:true, cb: ()=>{
+        const name = inp.value.trim() || def || 'Board';
+        const st = boardsStore();
+        st[name] = serializeBoard();
+        boardsWrite(st);
+        toast('Board saved as \u201c' + name + '\u201d.');
+      }},
+      {label:'Cancel'}
+    ]);
+    inp.focus(); inp.select();
+  }
+  function openBoards(){
+    const st = boardsStore();
+    const names = Object.keys(st);
+    const wrap = document.createElement('div');
+    if(!names.length){
+      const p = document.createElement('p'); p.className='dlg-p'; p.textContent = 'No saved boards on this device yet.';
+      wrap.appendChild(p);
+    }
+    names.forEach(n=>{
+      const row = document.createElement('div'); row.className='dlg-item';
+      const b = document.createElement('button'); b.className='dlg-open'; b.textContent = n;
+      b.addEventListener('click', ()=>{ d.close(); loadBoardData(st[n]); arrange(); autosaveBoard(); toast('\u201c' + n + '\u201d opened.'); });
+      const del = document.createElement('button'); del.className='btn danger'; del.textContent='\u00d7'; del.title='Delete saved board';
+      del.addEventListener('click', ()=>{ delete st[n]; boardsWrite(st); d.close(); openBoards(); });
+      row.append(b, del);
+      wrap.appendChild(row);
+    });
+    const d = dialog('Boards', wrap, [
+      {label:'Save current as\u2026', primary:true, cb: saveBoardAs},
+      {label:'New board', cb: confirmNewBoard},
+      {label:'Load example', cb: ()=>{ clearBoard(); buildExample(); arrange(); autosaveBoard(); try{ syncTitles(); }catch(e){} }},
+      {label:'Export file', cb: exportBoard},
+      {label:'Import file', cb: ()=> boardFile.click()},
+      {label:'Close'}
+    ]);
+  }
+  function confirmNewBoard(){
+    dialog('Start a new board?', 'The current board will be replaced. You can save it first.', [
+      {label:'Save first\u2026', primary:true, cb: ()=>{ saveBoardAs(); }},
+      {label:'Start new board', cb: newBoard},
+      {label:'Cancel'}
+    ]);
+  }
+  function exportBoard(){
+    const jc = cards.find(c=>c.type==='job');
+    const name = (jc ? jc.el.querySelector('.txt').textContent.trim() : 'board').replace(/\s+/g,'_') || 'board';
+    const blob = new Blob([JSON.stringify(serializeBoard(), null, 2)], {type:'application/json'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = name + '_dacum_board.json';
+    a.click();
+  }
+  const boardFile = document.createElement('input');
+  boardFile.type = 'file'; boardFile.accept = '.json'; boardFile.style.display = 'none';
+  document.body.appendChild(boardFile);
+  boardFile.addEventListener('change', e=>{
+    const f = e.target.files[0]; if(!f) return;
+    const r = new FileReader();
+    r.onload = ()=>{
+      try{
+        const d = JSON.parse(r.result);
+        if(!d.cards) throw 0;
+        loadBoardData(d); arrange(); autosaveBoard();
+        toast('Board imported.');
+      }catch(err){ toast('That file is not a DACUM board export.'); }
+    };
+    r.readAsText(f);
+    boardFile.value = '';
+  });
+  document.getElementById('btnBoards').addEventListener('click', openBoards);
 
   /* ------- help ------- */
   const helpEl = document.getElementById('help');
@@ -401,8 +608,8 @@
     if(c === linkChild){
       c.parent = null;
       clearLinkSel();
-      toast('Card unlinked. Use Build the chart to re-arrange.');
-      drawLinks();
+      structureChanged();
+      toast('Card unlinked; its number is released. Use Build the chart to re-arrange.');
       return;
     }
     if(LEVELS[c.type] !== LEVELS[linkChild.type] - 1){
@@ -410,14 +617,16 @@
       return;
     }
     const oldParent = cards.find(k=>k.id===linkChild.parent);
+    const oldTag = oldParent ? oldParent.el.querySelector('.tag').textContent : null;
+    const moved = linkChild;
     linkChild.parent = c.id;
-    const childTag = linkChild.el.querySelector('.tag').textContent;
-    const newTag = c.el.querySelector('.tag').textContent;
-    toast(oldParent
-      ? childTag + ' re-linked from ' + oldParent.el.querySelector('.tag').textContent + ' to ' + newTag + '. Use Build the chart to re-arrange.'
-      : childTag + ' linked to ' + newTag + '. Use Build the chart to place it in the hierarchy.');
     clearLinkSel();
-    drawLinks();
+    structureChanged();
+    const childTag = moved.el.querySelector('.tag').textContent;
+    const newTag = c.el.querySelector('.tag').textContent;
+    toast(oldTag
+      ? childTag + ' \u2014 moved from ' + oldTag + ' to ' + newTag + '; numbering updated. Use Build the chart to re-arrange.'
+      : childTag + ' linked under ' + newTag + '. Use Build the chart to place it.');
   }
 
   /* ------- interactions ------- */
@@ -440,6 +649,7 @@
         el.removeEventListener('pointermove', mv);
         el.removeEventListener('pointerup', up);
         drawLinks();
+        autosaveBoard();
       }
       el.addEventListener('pointermove', mv);
       el.addEventListener('pointerup', up);
@@ -455,6 +665,7 @@
     });
     el.querySelector('.txt').addEventListener('blur', ev=>{
       ev.target.removeAttribute('contenteditable');
+      autosaveBoard();
       if(c.type==='job'){
         try{ localStorage.setItem('dacum.job', ev.target.textContent.trim()); }catch(e){}
         syncTitles();
@@ -473,12 +684,12 @@
       if(linkChild===c) clearLinkSel();
       undoStack.push({type:c.type, tag:c.el.querySelector('.tag').textContent,
                       text:c.el.querySelector('.txt').textContent, parent:c.parent,
-                      x:c.x, y:c.y, rot:c.rot});
+                      x:c.x, y:c.y, rot:c.rot, idx: cards.indexOf(c)});
       const i = cards.indexOf(c);
       if(i>-1) cards.splice(i,1);
       el.remove();
-      drawLinks();
-      toast('Card deleted.', 'Undo', undoDelete);
+      structureChanged();
+      toast('Card deleted; remaining cards renumbered.', 'Undo', undoDelete);
     });
   }
 
@@ -557,10 +768,31 @@
   addMenu.querySelectorAll('button').forEach(b=>{
     b.addEventListener('click', ()=>{
       const type = b.dataset.type;
-      const tags = {job:'Job Title', func:'Function', task:'Task', sub:'Subtask'};
-      const c = addCard(type, tags[type], 'New ' + tags[type].toLowerCase() + ' — double-click to edit', null);
-      place(c, BOARD_W/2 - 80 + rand(-60,60), BOARD_H/2 - 60 + rand(-40,40), rand(-6,6));
       addMenu.style.display = 'none';
+      if(type === 'job'){
+        const jc = cards.find(c=>c.type==='job');
+        if(jc){
+          dialog('One Job Title per board', 'A DACUM board describes one job. You can edit the current job title, or start a new board for a different job.', [
+            {label:'Edit current title', primary:true, cb: ()=>{
+              const t = jc.el.querySelector('.txt');
+              t.setAttribute('contenteditable','true'); t.focus();
+            }},
+            {label:'Start a new board', cb: confirmNewBoard},
+            {label:'Cancel'}
+          ]);
+          return;
+        }
+      }
+      const names = {job:'Job Title', func:'Function', task:'Task', sub:'Subtask'};
+      const c = addCard(type, names[type], 'New ' + names[type].toLowerCase() + ' — double-tap to edit', null);
+      if(type === 'func'){
+        const jc = cards.find(k=>k.type==='job');
+        if(jc) c.parent = jc.id;
+      }
+      place(c, BOARD_CX() - 80 + rand(-60,60), 300 + rand(-40,40), rand(-6,6));
+      structureChanged();
+      if(type === 'func' && c.parent) toast(c.el.querySelector('.tag').textContent + ' added.');
+      else if(type === 'task' || type === 'sub') toast('Card added. Use Link to attach it to its ' + (type==='task'?'function':'task') + ' — it is numbered when linked.');
     });
   });
 
